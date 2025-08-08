@@ -17,6 +17,7 @@ import time
 WATCHED_FILES = [
     os.path.abspath(__file__),  # this .py file
     os.path.abspath(".env"),    # .env file
+    os.path.abspath("email_db.py"),    # .env file
 ]
 
 restart_required = False
