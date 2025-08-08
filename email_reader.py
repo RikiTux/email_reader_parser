@@ -10,6 +10,40 @@ from email_db import insert_email, init_db
 from email.utils import parsedate_to_datetime
 from bs4 import BeautifulSoup
 
+import sys
+import threading
+import time
+
+WATCHED_FILES = [
+    os.path.abspath(__file__),  # this .py file
+    os.path.abspath(".env"),    # .env file
+]
+
+restart_required = False
+
+def get_mtimes(paths):
+    return {path: os.path.getmtime(path) for path in paths if os.path.exists(path)}
+
+def restart_script():
+    print("\n🔄 Restarting script due to file change...\n")
+    python = sys.executable
+    os.execv(python, [python] + sys.argv)
+
+def start_file_watcher(interval=2):
+    def watcher():
+        initial_mtimes = get_mtimes(WATCHED_FILES)
+
+        while True:
+            time.sleep(interval)
+            current_mtimes = get_mtimes(WATCHED_FILES)
+            for path in WATCHED_FILES:
+                if path in current_mtimes and current_mtimes[path] != initial_mtimes.get(path):
+                    print(f"\n📁 Change detected in: {path}")
+                    globals()["restart_required"] = True
+                    return
+    thread = threading.Thread(target=watcher, daemon=True)
+    thread.start()
+
 class EmailReader:
     def __init__(self, email_name, server, email_address, password):
         self.server = server
@@ -168,6 +202,12 @@ async def main_loop(accounts, intervallo=60):
             print("\n🔄 Controllo email per tutti gli account...\n")
             tasks = [controlla_account(acc) for acc in accounts]
             await asyncio.gather(*tasks)
+
+            # ✅ Check for restart request
+            if globals().get("restart_required"):
+                print("🕒 Graceful restart requested after file change.")
+                restart_script()
+
             await asyncio.sleep(intervallo)
     except asyncio.CancelledError:
         print("\n⛔ Script interrotto manualmente.")
@@ -180,6 +220,7 @@ except json.JSONDecodeError as e:
     exit(1)
 
 if __name__ == "__main__":
+    start_file_watcher()
     init_db()
     try:
         asyncio.run(main_loop(accounts, intervallo=30))
