@@ -70,8 +70,18 @@ class EmailReader:
             email_ids = data[0].split()
 
             for eid in email_ids:
-                _, msg_data = self.mail.fetch(eid, "(BODY.PEEK[])")
-                msg = email.message_from_bytes(msg_data[0][1])
+                try:
+                    _, msg_data = self.mail.fetch(eid, "(BODY.PEEK[])")
+                    if not msg_data or not isinstance(msg_data[0], tuple) or not msg_data[0][1]:
+                        print(f"[!] Errore: messaggio malformato o vuoto per ID {eid}")
+                        continue
+
+                    raw_email = msg_data[0][1]
+                    msg = email.message_from_bytes(raw_email)
+                except Exception as fetch_err:
+                    print(f"DEBUG: msg_data = {msg_data}")
+                    print(f"[!] Errore durante il fetch dell'email ID {eid}: {fetch_err}")
+                    continue
 
                 subject = msg["subject"]
                 from_ = msg["from"]
