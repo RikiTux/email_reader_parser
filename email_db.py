@@ -19,6 +19,20 @@ def init_db():
         has_attachments BOOLEAN
     )
     """)
+    
+    # Add label column if it doesn't exist
+    try:
+        # Check if 'label' column exists
+        cursor.execute("PRAGMA table_info(emails)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if "label" not in columns:
+            cursor.execute("ALTER TABLE emails ADD COLUMN label TEXT DEFAULT NULL")
+    except sqlite3.OperationalError as e:
+        if "duplicate column name: label" in str(e):
+            pass  # Already added
+        else:
+            raise  # Re-raise if it's a different error
+
     conn.commit()
     conn.close()
 
@@ -35,17 +49,19 @@ def insert_email(data):
             subject,
             body,
             content_type,
-            has_attachments
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            has_attachments,
+            label
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            data['message_id'],
-            data['email_account'],
-            data['date'],
-            data['sender'],
-            data['subject'],
-            data['body'],
-            data['content_type'],
-            data['has_attachments']
+            data.get('message_id'),
+            data.get('email_account'),
+            data.get('date'),
+            data.get('sender'),
+            data.get('subject'),
+            data.get('body'),
+            data.get('content_type'),
+            data.get('has_attachments'),
+            data.get('label')  # Can be None (NULL)
         ))
         conn.commit()
     except Exception as e:
